@@ -3,7 +3,7 @@
 import subprocess
 import sys
 
-REPOSITORIES = ("homebrew-macos", "windows")
+REPOSITORIES = ("homebrew-macos", "windows", "android", "github-workflows")
 
 
 def git(*args):

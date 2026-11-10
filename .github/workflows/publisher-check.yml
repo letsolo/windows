@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Authenticate as the publisher App
         id: bot
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           client-id: ${{ vars.PUBLISHER_APP_CLIENT_ID }}
           private-key: ${{ secrets.PUBLISHER_APP_PRIVATE_KEY }}
@@ -21,7 +21,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: read
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           token: ${{ steps.bot.outputs.token }}
           persist-credentials: false
@@ -60,3 +60,5 @@ jobs:
           committer="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}" --jq '.committer.login')"
           [[ "$author" == "$bot_name" && "$committer" == "$bot_name" ]]
           printf 'Verified %s as author and committer.\n' "$bot_name"
+      - name: Check repository privacy
+        run: python3 -I scripts/check-repository.py

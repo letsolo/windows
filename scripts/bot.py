@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 OWNER = "letsolo"
-REPOSITORIES = ("homebrew-macos", "windows")
+REPOSITORIES = ("homebrew-macos", "windows", "android", "github-workflows")
 
 
 def api(path, token, data=None):

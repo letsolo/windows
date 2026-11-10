@@ -1,35 +1,35 @@
 # LetSolo Windows
 
-Windows application installers, release notes, and update files from LetSolo.
+Windows installers, update files, and release notes for LetSolo products.
 
 ## Downloads
 
-Download published installers from this repository's [Releases](https://github.com/letsolo/windows/releases). This repository is not a Homebrew tap. No application binary has been published yet.
+Download published installers from [Releases](https://github.com/letsolo/windows/releases). Tags use `<application>-v<version>` so several products can share this repository. No application installers have been released yet.
 
-## Vapor publisher
+## Publication flow
 
-The organization-owned `letsolo-vapor` GitHub App is shared with `letsolo/homebrew-macos`. Code authorship, committers, pushes, and release publication must use the actual App bot identity. Administrator accounts may manage repository settings and secrets, but must not submit repository code.
+A private product repository builds, signs, and tests its Windows app. Its workflow calls `letsolo/github-workflows/.github/workflows/release.yml@v1` with `platform: windows` and the name of an artifact uploaded in the same workflow run. The shared workflow uses Vapor to publish installers and update metadata here, generates `SHA256SUMS`, and creates a draft release by default.
 
-Configure this checkout using the App's private configuration kept outside the repository:
+Product-owned build and signing configuration belongs in the source repository. Upload only files intended for public download; credentials and source archives must not be release artifacts.
 
-```bash
-python3 -I scripts/bot.py --config /absolute/path/to/private/app.json configure
-```
+## Vapor authentication
 
-The helper detects `letsolo/windows` from its HTTPS origin and requests an installation token scoped to this repository only. It installs repository-local bot identity and hooks, removes inherited GitHub credential helpers, and disables inherited personal commit signing. Authentication failure stops the operation; it never falls back to a personal token.
-
-After configuration, use ordinary `git commit` and `git push`. To publish using `gh` as the bot without switching the global login:
+Author, commit, push, tag, and publish code as `letsolo-vapor[bot]`. Configure a new checkout before its first commit:
 
 ```bash
-git bot-gh release list --repo letsolo/windows
+python3 -I scripts/bot.py --config <private-app-config> configure
 ```
 
-To verify the latest remote commit:
+An already configured checkout uses the bot for ordinary `git commit` and `git push`. Use the local alias for bot-authenticated GitHub CLI operations:
 
 ```bash
-python3 -I scripts/bot.py --config /absolute/path/to/private/app.json verify
+git bot-gh release list
 ```
 
-## Actions configuration
+```bash
+python3 -I scripts/bot.py verify
+```
 
-Set variable `PUBLISHER_APP_CLIENT_ID` and secret `PUBLISHER_APP_PRIVATE_KEY` before the first push. Install the App only on the two selected release repositories, granting Contents write and Workflows write. The workflow checks the author, committer, and push actor. Local hooks are a checkout safeguard, not a server-enforced access policy.
+The App is installed across the organization; each local token is restricted to one allowed repository. Keys and private metadata stay outside the checkout. Authentication failure stops the operation, without using a personal login. Local hooks do not create a server-enforced restriction against administrators.
+
+The identity workflow verifies authorship and push identity, then checks tracked files for credentials and personal machine paths. Actions requires variable `PUBLISHER_APP_CLIENT_ID` and encrypted secret `PUBLISHER_APP_PRIVATE_KEY`.
