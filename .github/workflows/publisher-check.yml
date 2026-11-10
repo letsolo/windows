@@ -4,61 +4,43 @@ on:
   push:
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   verify:
     if: github.event.deleted != true
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticate as the publisher App
-        id: bot
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        with:
-          client-id: ${{ vars.PUBLISHER_APP_CLIENT_ID }}
-          private-key: ${{ secrets.PUBLISHER_APP_PRIVATE_KEY }}
-          owner: letsolo
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: read
-
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          token: ${{ steps.bot.outputs.token }}
           persist-credentials: false
           fetch-depth: 0
-
-      - name: Verify bot author, committer, and push actor
+      - name: Verify Vapor commit and push identities
         env:
-          GH_TOKEN: ${{ steps.bot.outputs.token }}
-          BOT_SLUG: ${{ steps.bot.outputs.app-slug }}
+          GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           PUSH_ACTOR: ${{ github.actor }}
-          REPOSITORY: ${{ github.repository }}
           HEAD_SHA: ${{ github.sha }}
           EVENT_BEFORE: ${{ github.event.before }}
         shell: bash
         run: |
           set -euo pipefail
-          bot_name="${BOT_SLUG}[bot]"
-          bot_id="$(gh api "/users/${bot_name}" --jq '.id')"
-          bot_email="${bot_id}+${bot_name}@users.noreply.github.com"
-          expected="${bot_name} <${bot_email}>"
-          if [[ "$EVENT_NAME" == push && "$PUSH_ACTOR" != "$bot_name" ]]; then
-            printf '%s\n' 'Push was not authenticated as the publisher App.' >&2
-            exit 1
+          bot='letsolo-vapor[bot]'
+          identity='letsolo-vapor[bot] <353304076+letsolo-vapor[bot]@users.noreply.github.com>'
+          if [[ "$EVENT_NAME" == push ]]; then
+            [[ "$PUSH_ACTOR" == "$bot" ]]
           fi
           revisions=("$HEAD_SHA")
-          if [[ "$EVENT_NAME" == push && -n "$EVENT_BEFORE" && "$EVENT_BEFORE" != 0000000000000000000000000000000000000000 ]]; then
+          if [[ -n "$EVENT_BEFORE" && "$EVENT_BEFORE" != 0000000000000000000000000000000000000000 ]]; then
             revisions=("${EVENT_BEFORE}..${HEAD_SHA}")
           fi
-          commit_list="$(git rev-list "${revisions[@]}")"
+          commits="$(git rev-list "${revisions[@]}")"
           while IFS= read -r sha; do
-            [[ "$(git show -s --format='%an <%ae>' "$sha")" == "$expected" ]]
-            [[ "$(git show -s --format='%cn <%ce>' "$sha")" == "$expected" ]]
-          done <<< "$commit_list"
-          author="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}" --jq '.author.login')"
-          committer="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}" --jq '.committer.login')"
-          [[ "$author" == "$bot_name" && "$committer" == "$bot_name" ]]
-          printf 'Verified %s as author and committer.\n' "$bot_name"
-      - name: Check repository privacy
+            [[ "$(git show -s --format='%an <%ae>' "$sha")" == "$identity" ]]
+            [[ "$(git show -s --format='%cn <%ce>' "$sha")" == "$identity" ]]
+          done <<< "$commits"
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}" --jq '.author.login')" == "$bot" ]]
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}" --jq '.committer.login')" == "$bot" ]]
+      - name: Check public repository privacy
         run: python3 -I scripts/check-repository.py
